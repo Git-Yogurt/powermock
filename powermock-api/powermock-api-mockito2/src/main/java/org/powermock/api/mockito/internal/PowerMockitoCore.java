@@ -26,35 +26,79 @@ import org.mockito.verification.VerificationMode;
 import org.powermock.api.mockito.expectation.PowerMockitoStubber;
 import org.powermock.api.mockito.internal.expectation.PowerMockitoStubberImpl;
 import org.powermock.api.mockito.internal.verification.StaticMockAwareVerificationMode;
+import org.powermock.core.classloader.ClassloaderWrapper;
+
+import java.util.concurrent.Callable;
 
 public class PowerMockitoCore {
-    @SuppressWarnings("rawtypes")
-    public PowerMockitoStubber doAnswer(Answer answer) {
-        
-        // We change the context classloader to the current CL in order for the Mockito
-        // framework to load it's plugins (such as MockMaker) correctly.
-        
-        final Stubber stubber;
-        final ClassLoader originalCL = Thread.currentThread().getContextClassLoader();
-        
-        Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-        try {
-            stubber = Mockito.doAnswer(answer);
-        } finally {
-            Thread.currentThread().setContextClassLoader(originalCL);
-        }
-        
+    
+    public PowerMockitoStubber doAnswer(final Answer answer) {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doAnswer(answer);
+            }
+        });
+    }
+    
+    public PowerMockitoStubber doThrow(final Throwable toBeThrown) {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doThrow(toBeThrown);
+            }
+        });
+    }
+    
+    public PowerMockitoStubber doCallRealMethod() {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doCallRealMethod();
+            }
+        });
+    }
+    
+    public PowerMockitoStubber doNothing() {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doNothing();
+            }
+        });
+    }
+    
+    public PowerMockitoStubber doReturn(final Object toBeReturned) {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doReturn(toBeReturned);
+            }
+        });
+    }
+    
+    public PowerMockitoStubber doAnswer(final Object toBeReturned, final Object... othersToBeReturned) {
+        return doAnswer(new Callable<Stubber>() {
+            @Override
+            public Stubber call() throws Exception {
+                return Mockito.doReturn(toBeReturned, othersToBeReturned);
+            }
+        });
+    }
+    
+    private PowerMockitoStubber doAnswer(final Callable<Stubber> callable) {
+        final Stubber stubber = ClassloaderWrapper.runWithClass(callable);
         return new PowerMockitoStubberImpl(stubber);
     }
-
+    
     private MockingProgress getMockingProgress() {
         return ThreadSafeMockingProgress.mockingProgress();
     }
-
+    
     public MockAwareVerificationMode wrapInMockitoSpecificVerificationMode(Object mock, VerificationMode mode) {
         return new MockAwareVerificationMode(mock, mode, getMockingProgress().verificationListeners());
     }
-
+    
     public MockAwareVerificationMode wrapInStaticVerificationMode(VerificationMode mode) {
         return new StaticMockAwareVerificationMode(mode, getMockingProgress().verificationListeners());
     }
